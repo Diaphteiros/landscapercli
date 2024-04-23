@@ -1,6 +1,8 @@
 module github.com/gardener/landscapercli
 
-go 1.21
+go 1.22.0
+
+toolchain go1.22.1
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -26,13 +28,13 @@ require (
 	k8s.io/client-go v0.29.3
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57
 	sigs.k8s.io/controller-runtime v0.17.2
+	sigs.k8s.io/controller-runtime/tools/setup-envtest v0.0.0-20240322105421-affb96708000
 	sigs.k8s.io/yaml v1.4.0
 )
 
 replace github.com/imdario/mergo => dario.cat/mergo v0.3.16
 
 require (
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Microsoft/hcsshim v0.12.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -48,7 +50,6 @@ require (
 	github.com/docker/docker-credential-helpers v0.8.1 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
-	github.com/docker/go-units v0.5.0 // indirect
 	github.com/drone/envsubst v1.0.3 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
@@ -109,6 +110,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spf13/afero v1.11.0 // indirect
 	github.com/texttheater/golang-levenshtein/levenshtein v0.0.0-20200805054039-cae8b0eaed6c // indirect
 	github.com/tonglil/buflogr v1.1.1 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
