@@ -7,6 +7,7 @@ package blueprints
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 
@@ -14,7 +15,8 @@ import (
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	envp "sigs.k8s.io/controller-runtime/tools/setup-envtest/env"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/tools/setup-envtest/env"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/remote"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/store"
 	"sigs.k8s.io/controller-runtime/tools/setup-envtest/versions"
@@ -94,18 +96,33 @@ func NewRenderCommand(ctx context.Context) *cobra.Command {
 func (o *RenderOptions) Complete() error { return nil }
 
 func (o *RenderOptions) Run() error {
-	if err := EnsureDependencies(o.depDir, o.k8sVersion); err != nil {
+	assetPath, err := EnsureDependencies(o.depDir, o.k8sVersion)
+	if err != nil {
 		return fmt.Errorf("error verifying/downloading envtest binaries: %w", err)
 	}
+
+	// start envtest environment
+	e := &envtest.Environment{
+		BinaryAssetsDirectory: assetPath,
+	}
+	kcfg, err := e.Start()
+	if err != nil {
+		return fmt.Errorf("error starting envtest environment: %w", err)
+	}
+	defer e.Stop()
+
+	// todo: templating
+	fmt.Println(kcfg)
+
 	return nil
 }
 
 // EnsureDependencies uses setup-envtest to download the kube-apiserver and etcd binaries, if required.
-func EnsureDependencies(binDir, k8sVersion string) error {
+func EnsureDependencies(binDir, k8sVersion string) (string, error) {
 	if binDir == "" {
 		dataDir, err := store.DefaultStoreDir()
 		if err != nil {
-			return fmt.Errorf("unable to determine setup-envtest default binary location, set --dep-dir to overwrite manually")
+			return "", fmt.Errorf("unable to determine setup-envtest default binary location, set --dep-dir to overwrite manually")
 		}
 		binDir = dataDir
 	}
@@ -118,16 +135,24 @@ func EnsureDependencies(binDir, k8sVersion string) error {
 		var err error
 		version, err = versions.FromExpr(k8sVersion)
 		if err != nil {
-			return fmt.Errorf("version cannot be parsed, use a valid version or 'latest': %w", err)
+			return "", fmt.Errorf("version cannot be parsed, use a valid version or 'latest': %w", err)
 		}
 	}
 
+	// setup-envtest prints the path to stdout, so we have to capture it from there
 	stdout := os.Stdout
 	defer func() {
 		os.Stdout = stdout
 	}()
-	os.Stdout, _ = os.Open(os.DevNull)
-	workflows.Use{}.Do(&envp.Env{
+	r, w, err := os.Pipe()
+	if err != nil {
+		return "", fmt.Errorf("error constructing pipe: %w", err)
+	}
+	defer r.Close()
+	os.Stdout = w
+
+	// run setup-envtest
+	workflows.Use{PrintFormat: env.PrintPath}.Do(&env.Env{
 		Log: logr.Discard(),
 		Client: &remote.Client{
 			Log:    logr.Discard(),
@@ -148,5 +173,12 @@ func EnsureDependencies(binDir, k8sVersion string) error {
 		Out:     os.Stdout,
 		Version: version,
 	})
-	return nil
+
+	// read the asset path previously written into the pipe
+	w.Close()
+	assetPath, err := io.ReadAll(r)
+	if err != nil {
+		return "", fmt.Errorf("error reading asset path from pipe: %w", err)
+	}
+	return string(assetPath), nil
 }
